@@ -1,0 +1,51 @@
+<!--
+configs/label_studio_config.xml
+===============================
+Label Studio labeling interface configuration.
+
+Provides:
+  1. Image bounding boxes (RectangleLabels) with per-region text transcription (TextArea).
+  2. Transcript text NER (Labels) for optionally tagging fields in raw extracted text.
+-->
+<View>
+  <Header value="Image Annotation"/>
+  <Image name="image" value="$image" zoom="true" zoomControl="true" />
+  
+  <RectangleLabels name="bbox" toName="image">
+    <!-- Aadhaar Fields -->
+    <Label value="name" background="#FF3333"/>
+    <Label value="name_regional" background="#FF9933"/>
+    <Label value="dob" background="#FFD633"/>
+    <Label value="gender" background="#33FF33"/>
+    <Label value="uid" background="#33FFFF"/>
+    <Label value="address" background="#3333FF"/>
+    <Label value="pincode" background="#9933FF"/>
+    <Label value="photo" background="#FF33FF"/>
+    
+    <!-- PAN Fields -->
+    <Label value="pan_number" background="#FF3385"/>
+    <Label value="father_name" background="#8533FF"/>
+    
+    <!-- General / CV Fields -->
+    <Label value="email" background="#3385FF"/>
+    <Label value="phone" background="#33FF85"/>
+    <Label value="skills" background="#85FF33"/>
+    <Label value="experience" background="#FF8533"/>
+    <Label value="education" background="#858585"/>
+  </RectangleLabels>
+
+  <!-- Allows annotators to type the OCR ground truth text for each bounding box -->
+  <TextArea name="transcription" toName="image" editable="true" perRegion="true" required="false" maxSubmissions="1" rows="1" placeholder="Recognized text" displayMode="region-list"/>
+  
+  <Header value="Transcript Annotation (NER)" style="margin-top: 2em;"/>
+  <!-- Only displayed if a "text" variable is provided in the task data -->
+  <Text name="text" value="$text" valueType="text" />
+  
+  <Labels name="ner" toName="text">
+    <Label value="name" background="#FF3333"/>
+    <Label value="dob" background="#FFD633"/>
+    <Label value="uid" background="#33FFFF"/>
+    <Label value="pan_number" background="#FF3385"/>
+    <Label value="address" background="#3333FF"/>
+  </Labels>
+</View>

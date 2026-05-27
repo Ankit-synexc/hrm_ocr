@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  hrm-ocr-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    env_file: ../.env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../logs:/app/logs
+      - ../data/raw:/app/data/raw
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1g
+    restart: unless-stopped
+
+  label-studio:
+    image: heartexlabs/label-studio:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ls_data:/label-studio/data
+
+volumes:
+  ls_data:

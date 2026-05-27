@@ -1,0 +1,81 @@
+# ==============================================================================
+# configs/default.yaml  — Global pipeline configuration
+# All values are consumed by hrm_ocr.pipeline and hrm_ocr.models modules.
+# ==============================================================================
+
+# ── Confidence thresholds ──────────────────────────────────────────────────────
+confidence_high: 0.92   # Accept result as-is; skip post-correction
+confidence_low:  0.70   # Below this → flag for human review / feedback loop
+
+# ── PDF routing heuristics ────────────────────────────────────────────────────
+# A PDF is treated as "digital" (pdfplumber text extraction) only when ALL
+# three conditions below are satisfied; otherwise it falls back to image OCR.
+pdf_min_chars:           100    # Minimum extracted character count
+pdf_min_printable_ratio: 0.85   # Fraction of chars that are printable ASCII
+pdf_min_text_lines:      3      # Minimum non-empty lines extracted
+
+# ── OCR engine settings ───────────────────────────────────────────────────────
+ocr_lang:           "en"    # PaddleOCR language pack to load
+paddle_use_gpu:     false   # MUST remain false — CPU-only deployment target
+paddle_use_angle_cls: true  # Enable text-direction classification (~2ms overhead)
+
+# ── Image pre-processing ──────────────────────────────────────────────────────
+dpi: 300                    # Canonical resolution for all card images
+card_width_px:  1012        # Width at 300 DPI for standard ID card (85.6×53.98mm)
+card_height_px:  638        # Height at 300 DPI
+
+preprocess:
+  # ── Feature toggles (set false to disable a step for A/B testing) ─────────
+  enable_perspective_warp: true   # Step 1 — highest-value step; disable only to benchmark
+  enable_deskew:           true   # Step 2 — Hough-line rotation correction
+  enable_clahe:            true   # Step 3 — contrast equalisation
+  enable_glare_removal:    true   # Step 4 — specular glare inpainting
+  enable_resize:           true   # Step 5 — canonicalise to 1012×638 px
+
+  # ── Step 2: Deskew tuning ─────────────────────────────────────────────────
+  deskew_min_angle:    0.5        # Skip rotation if |angle| < this (degrees)
+
+  # ── Step 3: CLAHE tuning ──────────────────────────────────────────────────
+  clahe_clip_limit:    2.0        # Higher → more contrast; lower → less haloing
+  clahe_tile_grid:     [8, 8]    # Grid size for local histogram
+  clahe_lum_low:       100        # Skip CLAHE if mean luminance in (low, high)
+  clahe_lum_high:      200        # i.e. well-lit images skip this step
+
+  # ── Step 4: Glare removal tuning ─────────────────────────────────────────
+  glare_threshold:     240        # L-channel value considered glare (0-255)
+  glare_area_ratio:    0.02       # Skip if glare covers ≤ 2% of card area
+  glare_inpaint_radius: 5         # Inpaint neighbourhood radius (pixels)
+
+# ── Template detection ────────────────────────────────────────────────────────
+template_detection:
+  # Minimum ORB/colour-hash similarity score to commit to a template version
+  min_match_score:     0.70
+  # Fallback if no template matches: attempt all templates and pick best field conf
+  fallback_strategy:   "best_confidence"
+
+# ── API server ────────────────────────────────────────────────────────────────
+api:
+  host:               "0.0.0.0"
+  port:               8000
+  workers:            2
+  max_request_size_mb: 10
+  # SlowAPI rate limiting
+  rate_limit_per_minute: 60
+
+# ── Feedback / active-learning loop ──────────────────────────────────────────
+feedback:
+  enabled:            true
+  # Confidence below this triggers automatic push to Label Studio review queue
+  auto_push_threshold: 0.80
+  db_url:             "sqlite:///./logs/feedback.db"   # override via env
+  label_studio_url:   ""   # populated from LABEL_STUDIO_URL env var
+  label_studio_token: ""   # populated from LABEL_STUDIO_TOKEN env var
+  project_id:         1
+
+# ── Synthetic data generation ─────────────────────────────────────────────────
+synthetic:
+  aadhaar_count:  500
+  pan_count:      500
+  seed:           42
+  output_dir:     "data/synthetic"
+  fonts_dir:      "data/reference/fonts"

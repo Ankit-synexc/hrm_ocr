@@ -1,0 +1,191 @@
+# ==============================================================================
+# configs/field_coords.yaml
+#
+# Single source of truth for all field bounding boxes.
+# All coordinates are at 300 DPI — canonical card size: 1012 × 638 px
+# (ISO/IEC 7810 ID-1 card: 85.6 × 53.98 mm at 300 DPI).
+#
+# Format per field:
+#   field_name: [x_min, y_min, x_max, y_max]   # pixel coords, top-left origin
+#
+# Versions:
+#   aadhaar_v1 — Pre-2012 (Blue, horizontal)
+#   aadhaar_v2 — 2012-2017 (Blue, horizontal, QR added)
+#   aadhaar_v3 — 2017-2020 (Saffron/white, QR bottom-right)
+#   aadhaar_v4 — 2020-present (New secure print, mAadhaar compatible)
+#   pan_v1     — Pre-2017 (Standard tan card)
+#   pan_v2     — 2017-2021 (Updated font, hologram right)
+#   pan_v3     — 2022-present (Revamped design, e-PAN compatible)
+# ==============================================================================
+
+# ── Aadhaar v1 — Pre-2012, Horizontal Blue ────────────────────────────────────
+aadhaar_v1:
+  # Government of India logo strip
+  logo_strip:         [0,    0,    1012,  80]
+  # UIDAI banner text
+  uidai_banner:       [200,  10,   800,   60]
+
+  # Primary identification fields
+  name:               [100,  120,  700,  175]   # Full name (printed in bold)
+  dob:                [100,  185,  450,  235]   # Date of Birth  DD/MM/YYYY
+  gender:             [100,  245,  350,  290]   # Male / Female / Transgender
+  aadhaar_number:     [100,  310,  680,  380]   # 12-digit, printed in groups of 4
+
+  # Address block (multiline — split into sub-fields)
+  address_line1:      [100,  400,  800,  440]
+  address_line2:      [100,  440,  800,  480]
+  address_city:       [100,  480,  500,  520]
+  address_state:      [500,  480,  800,  520]
+  address_pincode:    [100,  525,  300,  560]
+
+  # Back of card (present in v1 — separate image expected)
+  qr_code:            [0,    0,    0,    0]     # Not present in v1
+
+  # Metadata helpers (not extracted — used for template confidence)
+  issuer_text:        [0,    580,  1012, 638]
+
+
+# ── Aadhaar v2 — 2012-2017, QR code introduced ────────────────────────────────
+aadhaar_v2:
+  logo_strip:         [0,    0,    1012,  80]
+  uidai_banner:       [200,  10,   800,   60]
+
+  name:               [100,  120,  680,  175]
+  dob:                [100,  185,  430,  235]
+  gender:             [100,  245,  340,  290]
+  aadhaar_number:     [100,  310,  660,  380]
+
+  address_line1:      [100,  400,  780,  440]
+  address_line2:      [100,  440,  780,  480]
+  address_city:       [100,  480,  490,  520]
+  address_state:      [495,  480,  780,  520]
+  address_pincode:    [100,  525,  300,  560]
+
+  # QR code introduced bottom-right on front face
+  qr_code:            [800,  380,  1012, 600]
+
+  issuer_text:        [0,    590,  1012, 638]
+
+
+# ── Aadhaar v3 — 2017-2020, Saffron accent stripe ─────────────────────────────
+aadhaar_v3:
+  logo_strip:         [0,    0,    1012,  110]
+  uidai_banner:       [180,  12,   820,   65]
+  saffron_stripe:     [0,    0,    1012,  110]   # Saffron header area
+
+  # Anchor for dynamic registration on uncropped images
+  __anchor_text__:    "Government of India"
+  __anchor_y__:       50
+
+
+  # Text is located to the right of the portrait photo
+  # Portrait photo is approx X: 50 to 300
+  name:               [310,  120,  850,  180]
+  dob:                [310,  180,  700,  235]
+  gender:             [310,  235,  600,  290]
+  
+  # Aadhaar number is printed large at the bottom center
+  aadhaar_number:     [250,  450,  850,  540]
+
+  # Address layout (if present on front, though usually on back)
+  address_line1:      [310,  300,  950,  340]
+  address_line2:      [310,  340,  950,  380]
+  address_city:       [310,  380,  600,  420]
+  address_state:      [610,  380,  950,  420]
+  address_pincode:    [310,  420,  500,  460]
+
+  qr_code:            [790,  370,  1012, 610]
+  vid:                [250,  540,  850,  580]
+  issuer_text:        [0,    580,  1012, 638]
+
+
+# ── Aadhaar v4 — 2020-present, mAadhaar / secure print ───────────────────────
+aadhaar_v4:
+  logo_strip:         [0,    0,    1012,  90]
+  uidai_banner:       [170,  15,   840,   70]
+  saffron_stripe:     [0,    90,   1012, 108]
+
+  name:               [88,   118,  700,  172]
+  dob:                [88,   182,  430,  232]
+  gender:             [88,   242,  340,  287]
+  aadhaar_number:     [88,   302,  660,  372]   # Bold, larger font in v4
+
+  address_line1:      [88,   392,  790,  432]
+  address_line2:      [88,   432,  790,  472]
+  address_city:       [88,   474,  490,  514]
+  address_state:      [495,  474,  790,  514]
+  address_pincode:    [88,   520,  295,  558]
+
+  qr_code:            [785,  360,  1012, 615]
+  vid:                [88,   558,  510,  598]
+
+  # New: Masked Aadhaar option — last 8 digits shown, first 4 = XXXX
+  masked_aadhaar:     [88,   302,  660,  372]   # Same region, detected by X chars
+
+  issuer_text:        [0,    605,  1012, 638]
+
+
+# ── PAN v1 — Pre-2017, Standard tan/buff card ─────────────────────────────────
+pan_v1:
+  # Government of India + Income Tax Dept header
+  header_strip:       [0,    0,    1012,  90]
+  it_dept_text:       [150,  10,   860,   55]
+  income_tax_logo:    [0,    10,   140,   80]
+
+  # Taxpayer fields
+  name:               [95,   115,  780,  168]   # Full name of taxpayer
+  fathers_name:       [95,   178,  780,  228]   # Father's name
+  dob:                [95,   242,  360,  290]   # DD/MM/YYYY
+  pan_number:         [95,   312,  500,  365]   # 10-char alphanumeric AAAAA9999A
+
+  # Signature and photo boxes
+  signature_box:      [95,   380,  420,  490]
+  photo_box:          [780,  100,  1012, 490]
+
+  # Footer
+  govt_stamp:         [0,    510,  1012, 638]
+
+
+# ── PAN v2 — 2017-2021, Updated typography & right-side hologram ──────────────
+pan_v2:
+  header_strip:       [0,    0,    1012,  92]
+  it_dept_text:       [155,  12,   855,   58]
+  income_tax_logo:    [0,    12,   145,   82]
+
+  name:               [98,   118,  775,  170]
+  fathers_name:       [98,   182,  775,  232]
+  dob:                [98,   245,  355,  293]
+  pan_number:         [98,   315,  495,  368]
+
+  # v2 introduces holographic strip on right edge
+  hologram_strip:     [970,  90,   1012, 550]
+
+  signature_box:      [98,   382,  415,  492]
+  photo_box:          [770,  102,  965,  492]
+
+  govt_stamp:         [0,    512,  1012, 638]
+
+
+# ── PAN v3 — 2022-present, Revamped design, e-PAN compatible ─────────────────
+pan_v3:
+  header_strip:       [0,    0,    1012,  95]
+  it_dept_text:       [160,  14,   850,   62]
+  income_tax_logo:    [0,    14,   150,   85]
+  ashoka_emblem:      [445,  8,    565,   88]   # Centred Ashoka chakra in v3
+
+  name:               [95,   120,  765,  172]
+  fathers_name:       [95,   183,  765,  235]
+  dob:                [95,   248,  360,  296]
+  pan_number:         [95,   318,  490,  370]   # Larger, bolder font
+
+  # v3: QR code added (links to e-PAN verification portal)
+  qr_code:            [820,  320,  1012, 510]
+
+  hologram_strip:     [968,  92,   1012, 545]
+
+  signature_box:      [95,   385,  410,  495]
+  photo_box:          [762,  105,  962,  495]
+
+  # v3 footer has website + helpline
+  footer_text:        [0,    515,  1012, 560]
+  govt_stamp:         [0,    560,  1012, 638]
