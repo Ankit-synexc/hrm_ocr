@@ -108,11 +108,14 @@ def route_field(
     # ---------------------------------------------------------
     
     # Initial Accept conditions
+    is_strong_field = field_name in ["uid", "aadhaar_number", "pan_number"]
+    
     if correction_result.was_changed and validation_result.is_valid:
-        return RoutingDecision(
-            field_name, correction_result.corrected, raw_confidence, 'accept', None,
-            raw_text, correction_result.corrected, True, attempts, 'ocr'
-        )
+        if is_strong_field or raw_confidence >= conf_low:
+            return RoutingDecision(
+                field_name, correction_result.corrected, raw_confidence, 'accept', None,
+                raw_text, correction_result.corrected, True, attempts, 'ocr'
+            )
         
     if raw_confidence >= conf_high and validation_result.is_valid:
         return RoutingDecision(

@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class TemplateDetectionResult:
-    doc_type: Literal['aadhaar', 'pan', 'unknown']
+    doc_type: Literal['aadhaar', 'pan', 'cv', 'unknown']
     template_version: str
     confidence: float
     field_coordinate_map: dict

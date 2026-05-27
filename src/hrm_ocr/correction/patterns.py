@@ -93,6 +93,11 @@ def correct_date(raw: str) -> str:
         if 1 <= d <= 31 and 1 <= m <= 12 and 1900 <= y <= 2100:
             return f"{dd}/{mm}/{yyyy}"
             
+    # Fallback for YOB Aadhaar cards
+    yob_match = re.search(r"\b(19\d{2}|20\d{2})\b", candidate)
+    if yob_match:
+        return yob_match.group(1)
+            
     return raw
 
 

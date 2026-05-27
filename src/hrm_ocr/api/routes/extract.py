@@ -17,7 +17,7 @@ from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 
 # The following modules are part of the hrm_ocr pipeline architecture.
 # We import them to orchestrate the complete end-to-end extraction.
-from hrm_ocr.correction.patterns import correct_field
+from hrm_ocr.correction.patterns import correct_all_fields, correct_field
 from hrm_ocr.feedback.logger import FeedbackLogger
 from hrm_ocr.models.glyph_cache import CachedOCREngine
 from hrm_ocr.models.ocr_engine import get_engine
@@ -41,12 +41,7 @@ router = APIRouter()
 # Instantiate the FeedbackLogger globally for the router
 feedback_logger = FeedbackLogger()
 
-def correct_all_fields(doc_type: str, ocr_results: dict[str, Any]) -> dict[str, Any]:
-    """Helper to apply the regex correction layer across all fields."""
-    corrections = {}
-    for field_name, result in ocr_results.items():
-        corrections[field_name] = correct_field(field_name, result.text)
-    return corrections
+# correct_all_fields is imported from hrm_ocr.correction.patterns
 
 
 def _run_pipeline(raw_bytes: bytes, mime_type: str, request_id: str) -> dict[str, Any]:
@@ -131,25 +126,29 @@ def _run_pipeline(raw_bytes: bytes, mime_type: str, request_id: str) -> dict[str
                 raise ValueError("No pages found in document route.")
             page_img = route.pages[0]
             img = clean_image(page_img)
-            template = detect_template(img)
+            
+            # Run full page OCR first, then spatial + template detection
+            full_regions = cached_engine.engine.recognize_full_card(page_img)
+            full_text = " ".join([r.text for r in full_regions]) if full_regions else ""
+            
+            template = detect_template(img, extracted_text=full_text)
             doc_type = template.doc_type
             template_version = template.template_version
             
-            raw_ocr_results = cached_engine.engine.recognize_spatial(page_img, doc_type)
+            raw_ocr_results = cached_engine.engine.recognize_spatial_from_regions(full_regions, doc_type)
             if not raw_ocr_results or "aadhaar_number" not in raw_ocr_results:
                 raw_ocr_results = cached_engine.engine.recognize_all_fields(img, template.field_coordinate_map)
             for field, coords in template.field_coordinate_map.items():
                 if not field.startswith("__") and len(coords) == 4:
                     x1, y1, x2, y2 = coords
                     crop_cache[field] = img[y1:y2, x1:x2]
-        
-        # Extract raw strings for the correction module
+
+    # ── Common OCR post-processing (runs for BOTH image and PDF-image paths) ──
+    if extraction_method == 'ocr' and raw_ocr_results:
         raw_text_dict = {k: v.text for k, v in raw_ocr_results.items()}
         corrections = correct_all_fields(doc_type, raw_text_dict)
         fields_raw = {k: v.corrected for k, v in corrections.items()}
-        
         cached_engine.reset_session()
-        extraction_method = 'ocr'
 
     # Common path for both text and OCR routes
     validation = validate_fields(doc_type, fields_raw)
@@ -160,9 +159,19 @@ def _run_pipeline(raw_bytes: bytes, mime_type: str, request_id: str) -> dict[str
             raw_res = raw_ocr_results.get(field)
             if not raw_res:
                 continue
+            current_crop = crop_cache.get(field)
+            if raw_res.raw_regions:
+                xs = [pt[0] for r in raw_res.raw_regions for pt in r.bbox]
+                ys = [pt[1] for r in raw_res.raw_regions for pt in r.bbox]
+                if xs and ys:
+                    pad = 5
+                    x1, x2 = max(0, min(xs) - pad), min(img.shape[1], max(xs) + pad)
+                    y1, y2 = max(0, min(ys) - pad), min(img.shape[0], max(ys) + pad)
+                    current_crop = img[y1:y2, x1:x2]
+
             decision = route_field(
                 field_name=field,
-                crop=crop_cache.get(field),
+                crop=current_crop,
                 raw_text=raw_res.text,
                 raw_confidence=raw_res.confidence,
                 correction_result=corrections[field],

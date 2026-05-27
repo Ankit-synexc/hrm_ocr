@@ -150,9 +150,15 @@ def validate_date(date_str: str) -> ValidationResult:
     """Validate calendar date and logical bounds."""
     clean_date = date_str.strip()
     
+    # Check for YOB format first
+    if re.match(r"^(19\d{2}|20\d{2})$", clean_date):
+        age = datetime.date.today().year - int(clean_date)
+        if 0 <= age <= 120:
+             return ValidationResult(True)
+             
     match = re.match(r"^(\d{2})/(\d{2})/(\d{4})$", clean_date)
     if not match:
-        return ValidationResult(False, "Date must be DD/MM/YYYY")
+        return ValidationResult(False, "Date must be DD/MM/YYYY or YYYY")
         
     dd, mm, yyyy = map(int, match.groups())
     

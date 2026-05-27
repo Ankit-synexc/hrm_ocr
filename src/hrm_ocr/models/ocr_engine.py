@@ -234,15 +234,18 @@ class OCREngine:
             # 1. Aadhaar Number (12 digits)
             uid_match = re.search(r"(\d{4}\s?\d{4}\s?\d{4})", full_text)
             if uid_match:
+                uid_str = uid_match.group(1)
                 # Mock a FieldOCRResult
                 results["aadhaar_number"] = FieldOCRResult(
-                    text=uid_match.group(1).replace(" ", ""),
+                    text=uid_str.replace(" ", ""),
                     confidence=0.99,
                     raw_regions=[]
                 )
+                # Remove the Aadhaar number from text to prevent false positive pincodes
+                full_text = full_text.replace(uid_str, "")
                 
             # 2. DOB (highly robust to OCR artifacts like D0B, Year of 8irth)
-            dob_match = re.search(r"(?:DOB|D0B|YOB|Birth|Date).*?([0-9]{2}[/-][0-9]{2}[/-][0-9]{4}|[0-9]{4})", full_text, re.IGNORECASE)
+            dob_match = re.search(r"(?:DOB|D0B|YOB|Birth).*?([0-9]{2}[/-][0-9]{2}[/-][0-9]{4}|[0-9]{4})", full_text, re.IGNORECASE)
             if dob_match:
                 results["dob"] = FieldOCRResult(text=dob_match.group(1), confidence=0.95, raw_regions=[])
                 
@@ -274,6 +277,15 @@ class OCREngine:
                 candidates.sort(key=lambda x: x[0], reverse=True)
                 if candidates:
                     results["name"] = FieldOCRResult(text=candidates[0][1], confidence=0.90, raw_regions=[])
+                    
+            # 5. Address (Spatial extraction looking for "Address:" or "पता:" followed by text ending in a 6-digit pincode)
+            # Use negative lookbehind/lookahead and [1-8] for valid Indian pincodes
+            address_match = re.search(r"(?:Address|पता)\s*[:;-]?\s*(.*?(?<!\d)([1-8]\d{5})(?!\d))", full_text, re.IGNORECASE)
+            if address_match:
+                address_text = address_match.group(1).strip()
+                results["address"] = FieldOCRResult(text=address_text, confidence=0.85, raw_regions=[])
+                
+                results["pincode"] = FieldOCRResult(text=address_match.group(2), confidence=0.95, raw_regions=[])
                     
         elif doc_type == "pan":
             pan_match = re.search(r"([A-Z]{5}[0-9]{4}[A-Z])", full_text)
