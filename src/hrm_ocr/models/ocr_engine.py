@@ -288,14 +288,72 @@ class OCREngine:
                 results["pincode"] = FieldOCRResult(text=address_match.group(2), confidence=0.95, raw_regions=[])
                     
         elif doc_type == "pan":
-            pan_match = re.search(r"([A-Z]{5}[0-9]{4}[A-Z])", full_text)
+            # Robust PAN regex: 5 chars, 4 chars, 1 char (handles O/0 confusion)
+            pan_match = re.search(r"\b([A-Z0-9]{5}[0-9O]{4}[A-Z0-9])\b", full_text, re.IGNORECASE)
             if pan_match:
+                # Normalize O to 0 in the numeric part if needed
                 results["pan_number"] = FieldOCRResult(
-                    text=pan_match.group(1), confidence=0.99, raw_regions=[]
+                    text=pan_match.group(1).upper(), confidence=0.99, raw_regions=[]
                 )
+                
             dob_match = re.search(r"([0-9]{2}[/-][0-9]{2}[/-][0-9]{4})", full_text)
             if dob_match:
                 results["dob"] = FieldOCRResult(text=dob_match.group(1), confidence=0.95, raw_regions=[])
+                
+            # Name and Father's Name using spatial distance to DOB (Rotation Invariant)
+            dob_center = None
+            if dob_match:
+                dob_clean = dob_match.group(1).replace(" ", "")
+                for r in full_regions:
+                    if dob_clean in r.text.replace(" ", ""):
+                        xs = [pt[0] for pt in r.bbox]
+                        ys = [pt[1] for pt in r.bbox]
+                        dob_center = (sum(xs)/len(xs), sum(ys)/len(ys))
+                        break
+                        
+            if dob_center is not None:
+                candidates = []
+                for r in full_regions:
+                    text = r.text.strip()
+                    up = text.upper()
+                    alpha_only = re.sub(r"[^A-Z]", "", up)
+                    
+                    # 1. Drop definite boilerplate lines entirely
+                    if any(x in up for x in ["INCOME", "TAX", "DEPARTMENT", "GOVT", "INDIA", "PERMANENT", "ACCOUNT", "SIGNATURE", "DATE", "BIRTH"]):
+                        continue
+                    if pan_match and pan_match.group(1).upper() in up:
+                        continue
+                    if dob_match and dob_match.group(1) in up:
+                        continue
+                        
+                    # 2. Drop standalone label lines (even if mis-OCRed with noise)
+                    if "FATHER" in up and "NAME" in up:
+                        continue
+                    if "NAME" in up and len(alpha_only) <= 8:  # Catches "नाम / Name", "f T/ Name", etc.
+                        continue
+                        
+                    # 3. Strip labels if they were OCR'd on the same line as the actual name
+                    import re
+                    text = re.sub(r"(?i)^(Name|Father's Name|Fathers Name|Father Name|पिता का नाम|नाम)[\s:/]*", "", text).strip()
+                    
+                    if len(text) < 3:
+                        continue
+                        
+                    # Calculate distance to DOB
+                    xs = [pt[0] for pt in r.bbox]
+                    ys = [pt[1] for pt in r.bbox]
+                    center = (sum(xs)/len(xs), sum(ys)/len(ys))
+                    dist = ((center[0] - dob_center[0])**2 + (center[1] - dob_center[1])**2)**0.5
+                    
+                    candidates.append((dist, text))
+                    
+                # Sort by distance to DOB (closest is Father's Name, next is Name)
+                candidates.sort(key=lambda x: x[0])
+                
+                if len(candidates) > 0:
+                    results["father_name"] = FieldOCRResult(text=candidates[0][1], confidence=0.90, raw_regions=[])
+                if len(candidates) > 1:
+                    results["name"] = FieldOCRResult(text=candidates[1][1], confidence=0.90, raw_regions=[])
                 
         elif doc_type == "cv":
             # Re-use text_extractor logic for the raw OCR text!

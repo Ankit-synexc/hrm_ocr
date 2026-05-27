@@ -86,7 +86,8 @@ def _run_pipeline(raw_bytes: bytes, mime_type: str, request_id: str) -> dict[str
         raw_ocr_results = cached_engine.engine.recognize_spatial_from_regions(full_regions, doc_type)
         
         # 4. If spatial misses fields, fall back to coordinate map
-        if not raw_ocr_results or "aadhaar_number" not in raw_ocr_results:
+        core_field = "pan_number" if doc_type == "pan" else "aadhaar_number"
+        if not raw_ocr_results or core_field not in raw_ocr_results:
             logger.info("Spatial extraction missed core fields, falling back to coordinate map...")
             raw_ocr_results = cached_engine.engine.recognize_all_fields(img, template.field_coordinate_map)
         
@@ -136,7 +137,8 @@ def _run_pipeline(raw_bytes: bytes, mime_type: str, request_id: str) -> dict[str
             template_version = template.template_version
             
             raw_ocr_results = cached_engine.engine.recognize_spatial_from_regions(full_regions, doc_type)
-            if not raw_ocr_results or "aadhaar_number" not in raw_ocr_results:
+            core_field = "pan_number" if doc_type == "pan" else "aadhaar_number"
+            if not raw_ocr_results or core_field not in raw_ocr_results:
                 raw_ocr_results = cached_engine.engine.recognize_all_fields(img, template.field_coordinate_map)
             for field, coords in template.field_coordinate_map.items():
                 if not field.startswith("__") and len(coords) == 4:
