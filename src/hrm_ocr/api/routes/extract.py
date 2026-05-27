@@ -108,10 +108,24 @@ def _run_pipeline(raw_bytes: bytes, mime_type: str, request_id: str) -> dict[str
             
         route = route_document(raw_bytes)
         if route.type == 'text':
-            result = extract_fields_from_text(route.raw_text or "", doc_type)
+            raw_text = route.raw_text or ""
+            
+            # Auto-classify digital PDFs
+            raw_lower = raw_text.lower()
+            import re
+            if "experience" in raw_lower and ("skills" in raw_lower or "education" in raw_lower):
+                doc_type = "cv"
+            elif re.search(r"[a-z]{5}[0-9]{4}[a-z]", raw_lower) or "income tax department" in raw_lower:
+                doc_type = "pan"
+            elif "aadhaar" in raw_lower or "unique identification" in raw_lower:
+                doc_type = "aadhaar"
+            else:
+                doc_type = "unknown"
+                
+            result = extract_fields_from_text(raw_text, doc_type)
             fields_raw = result.fields
             extraction_method = 'text_layer'
-            doc_type = getattr(result, 'doc_type', "unknown")
+            doc_type = getattr(result, 'doc_type', doc_type)
         else:
             if not route.pages:
                 raise ValueError("No pages found in document route.")
@@ -129,7 +143,9 @@ def _run_pipeline(raw_bytes: bytes, mime_type: str, request_id: str) -> dict[str
                     x1, y1, x2, y2 = coords
                     crop_cache[field] = img[y1:y2, x1:x2]
         
-        corrections = correct_all_fields(doc_type, raw_ocr_results)
+        # Extract raw strings for the correction module
+        raw_text_dict = {k: v.text for k, v in raw_ocr_results.items()}
+        corrections = correct_all_fields(doc_type, raw_text_dict)
         fields_raw = {k: v.corrected for k, v in corrections.items()}
         
         cached_engine.reset_session()
@@ -158,7 +174,12 @@ def _run_pipeline(raw_bytes: bytes, mime_type: str, request_id: str) -> dict[str
         else:
             # Fake correction result for text layer
             from hrm_ocr.correction.patterns import CorrectionResult
-            mock_corr = CorrectionResult(value, value, False, "")
+            mock_corr = CorrectionResult(
+                original=value,
+                corrected=value,
+                was_changed=False,
+                change_description=""
+            )
             decision = route_field(
                 field_name=field,
                 crop=None,

@@ -274,6 +274,23 @@ class OCREngine:
                 candidates.sort(key=lambda x: x[0], reverse=True)
                 if candidates:
                     results["name"] = FieldOCRResult(text=candidates[0][1], confidence=0.90, raw_regions=[])
+                    
+        elif doc_type == "pan":
+            pan_match = re.search(r"([A-Z]{5}[0-9]{4}[A-Z])", full_text)
+            if pan_match:
+                results["pan_number"] = FieldOCRResult(
+                    text=pan_match.group(1), confidence=0.99, raw_regions=[]
+                )
+            dob_match = re.search(r"([0-9]{2}[/-][0-9]{2}[/-][0-9]{4})", full_text)
+            if dob_match:
+                results["dob"] = FieldOCRResult(text=dob_match.group(1), confidence=0.95, raw_regions=[])
+                
+        elif doc_type == "cv":
+            # Re-use text_extractor logic for the raw OCR text!
+            from hrm_ocr.pipeline.text_extractor import extract_fields_from_text
+            cv_res = extract_fields_from_text(full_text, "cv")
+            for field_name, field_val in cv_res.fields.items():
+                results[field_name] = FieldOCRResult(text=field_val, confidence=0.85, raw_regions=[])
         
         return results
 

@@ -94,8 +94,18 @@ def detect_template(image: np.ndarray, extracted_text: str = "") -> TemplateDete
             detection_method="aspect_ratio_portrait"
         )
         
+    # Standard A4 / Letter Document (e.g., CVs)
+    elif 0.65 <= aspect_ratio <= 0.85:
+        return TemplateDetectionResult(
+            doc_type="cv",
+            template_version="cv_standard",
+            confidence=0.8,
+            field_coordinate_map={}, # CVs don't use strict coordinates
+            detection_method="aspect_ratio_a4"
+        )
+        
     # If it's not landscape, we don't know what it is
-    if not (1.4 < aspect_ratio < 1.7):
+    elif not (1.4 < aspect_ratio < 1.7):
         return TemplateDetectionResult(
             doc_type="unknown",
             template_version="unknown",
